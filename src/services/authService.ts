@@ -14,6 +14,7 @@ export interface User {
   phone?: string;
   dateOfBirth?: string;
   gender?: string;
+  profilePicture?: string;
   address?: {
     street?: string;
     city?: string;
@@ -243,6 +244,40 @@ class AuthService {
       await AsyncStorage.setItem('user', JSON.stringify(user));
     } catch (error) {
       console.error('Error updating stored user:', error);
+    }
+  }
+
+  // Upload profile picture
+  async uploadProfilePicture(imageUri: string): Promise<{ imageUrl: string }> {
+    try {
+      const formData = new FormData();
+      
+      formData.append('profilePicture', {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: 'profile-picture.jpg',
+      } as any);
+
+      const response = await apiClient.post('/users/profile-picture', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error('Profile picture upload error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to upload profile picture');
+    }
+  }
+
+  // Delete profile picture
+  async deleteProfilePicture(): Promise<void> {
+    try {
+      await apiClient.delete('/users/profile-picture');
+    } catch (error: any) {
+      console.error('Profile picture delete error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to delete profile picture');
     }
   }
 }

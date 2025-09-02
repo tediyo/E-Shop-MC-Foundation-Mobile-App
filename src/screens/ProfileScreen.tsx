@@ -8,17 +8,20 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { theme } from '../styles/theme';
+import imageService from '../services/imageService';
 
 interface ProfileScreenProps {
   navigation: any;
 }
 
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
-  const { user, logout, isLoading, error } = useAuth();
+  const { user, logout, isLoading, error, uploadProfilePicture, deleteProfilePicture } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -61,6 +64,78 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
     });
   };
 
+  const handleProfilePicturePress = () => {
+    if (user?.profilePicture) {
+      // Show options to change or remove profile picture
+      Alert.alert(
+        'Profile Picture',
+        'What would you like to do?',
+        [
+          {
+            text: 'Change Picture',
+            onPress: handleChangeProfilePicture,
+          },
+          {
+            text: 'Remove Picture',
+            style: 'destructive',
+            onPress: handleRemoveProfilePicture,
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    } else {
+      // Show option to add profile picture
+      handleChangeProfilePicture();
+    }
+  };
+
+  const handleChangeProfilePicture = async () => {
+    try {
+      setUploadingImage(true);
+      const imageUri = await imageService.showImagePickerOptions();
+      
+      if (imageUri) {
+        await uploadProfilePicture(imageUri);
+        Alert.alert('Success', 'Profile picture updated successfully!');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update profile picture');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleRemoveProfilePicture = () => {
+    Alert.alert(
+      'Remove Profile Picture',
+      'Are you sure you want to remove your profile picture?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setUploadingImage(true);
+              await deleteProfilePicture();
+              Alert.alert('Success', 'Profile picture removed successfully!');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to remove profile picture');
+            } finally {
+              setUploadingImage(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (isLoading && !user) {
     return (
       <View style={styles.loadingContainer}>
@@ -91,11 +166,31 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
       {/* Header Section */}
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.firstName?.charAt(0)?.toUpperCase() || 'U'}
-            </Text>
-          </View>
+          <TouchableOpacity 
+            style={styles.avatar} 
+            onPress={handleProfilePicturePress}
+            disabled={uploadingImage}
+          >
+            {user?.profilePicture ? (
+              <Image 
+                source={{ uri: user.profilePicture }} 
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={styles.avatarText}>
+                {user?.firstName?.charAt(0)?.toUpperCase() || 'U'}
+              </Text>
+            )}
+            {uploadingImage && (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator color={theme.colors.text.inverse} size="small" />
+              </View>
+            )}
+            <View style={styles.avatarEditIcon}>
+              <Text style={styles.avatarEditText}>📷</Text>
+            </View>
+          </TouchableOpacity>
         </View>
         <Text style={styles.name}>
           {user?.firstName} {user?.lastName}
@@ -312,11 +407,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...theme.shadows.lg,
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: theme.borderRadius.full,
   },
   avatarText: {
     ...theme.typography.h1,
     color: theme.colors.text.inverse,
     fontWeight: '700',
+  },
+  avatarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: theme.borderRadius.full,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarEditIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.full,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: theme.colors.surface,
+  },
+  avatarEditText: {
+    fontSize: 16,
   },
   name: {
     ...theme.typography.h2,

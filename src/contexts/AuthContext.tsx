@@ -15,6 +15,8 @@ interface AuthContextType extends AuthState {
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearError: () => void;
+  uploadProfilePicture: (imageUri: string) => Promise<void>;
+  deleteProfilePicture: () => Promise<void>;
 }
 
 // Action Types
@@ -185,6 +187,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
+  const uploadProfilePicture = async (imageUri: string) => {
+    try {
+      dispatch({ type: 'AUTH_START' });
+      
+      const response = await authService.uploadProfilePicture(imageUri);
+      
+      // Update user with new profile picture URL
+      if (state.user) {
+        const updatedUser = { ...state.user, profilePicture: response.imageUrl };
+        await authService.updateStoredUser(updatedUser);
+        dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+      }
+    } catch (error: any) {
+      dispatch({ type: 'AUTH_FAILURE', payload: error.message });
+      throw error;
+    }
+  };
+
+  const deleteProfilePicture = async () => {
+    try {
+      dispatch({ type: 'AUTH_START' });
+      
+      await authService.deleteProfilePicture();
+      
+      // Update user to remove profile picture
+      if (state.user) {
+        const updatedUser = { ...state.user, profilePicture: undefined };
+        await authService.updateStoredUser(updatedUser);
+        dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+      }
+    } catch (error: any) {
+      dispatch({ type: 'AUTH_FAILURE', payload: error.message });
+      throw error;
+    }
+  };
+
   const value: AuthContextType = {
     ...state,
     login,
@@ -192,6 +230,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     refreshProfile,
     clearError,
+    uploadProfilePicture,
+    deleteProfilePicture,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
